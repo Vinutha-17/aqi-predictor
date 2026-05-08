@@ -108,6 +108,7 @@
 #     }
 #     st.info(advice[category])
 
+
 import streamlit as st
 import pandas as pd
 import pickle
@@ -120,8 +121,8 @@ st.set_page_config(page_title="AQI Predictor", page_icon="🌿")
 st.title("🌿 Air Quality Index Predictor")
 st.markdown("Adjust the pollutant levels to predict the AQI and category.")
 
-# Auto-train if model missing (reads city_day.csv directly from repo)
-if not os.path.exists("model.pkl"):
+# Train once and store in session_state (survives reruns, no file needed)
+if "model" not in st.session_state:
     with st.spinner("Setting up model for first time... this takes ~30 seconds."):
         try:
             df = pd.read_csv("city_day.csv")
@@ -141,27 +142,19 @@ if not os.path.exists("model.pkl"):
             model = RandomForestRegressor(n_estimators=100, random_state=42)
             model.fit(X_train, y_train)
 
-            with open("model.pkl", "wb") as f:
-                pickle.dump({
-                    "model": model,
-                    "imputer": imputer,
-                    "features": features
-                }, f)
+            # Store in session state — no file writing needed
+            st.session_state["model"] = model
+            st.session_state["imputer"] = imputer
+            st.session_state["features"] = features
 
         except Exception as e:
             st.error(f"Training failed: {e}")
             st.stop()
 
-# Load model
-try:
-    with open("model.pkl", "rb") as f:
-        saved = pickle.load(f)
-    model = saved["model"]
-    imputer = saved["imputer"]
-    features = saved["features"]
-except Exception as e:
-    st.error(f"Failed to load model: {e}")
-    st.stop()
+# Retrieve from session state
+model    = st.session_state["model"]
+imputer  = st.session_state["imputer"]
+features = st.session_state["features"]
 
 # AQI category helper
 def get_aqi_category(aqi):
